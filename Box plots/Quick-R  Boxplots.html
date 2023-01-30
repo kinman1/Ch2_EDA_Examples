@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html><head>
+<link href="Quick-R%20%20Boxplots_files/css.css" rel="stylesheet">
+    <title>Quick-R: Boxplots</title>
+    <meta name="Description" content="Learn how to create boxplots in R for individual variables or for variables by group.">
+    
+    <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+    <meta name="Distribution" content="Global">
+    <meta name="Author" content="Robert Kabacoff - robk@statmethods.net">
+    <meta name="Robots" content="index,follow">
+    <meta name="verify-v1" content="mRsSDOT/ebuSJJB2GXuo1UZi3nZ+NsE+JIBwg77QtNE=">
+    <meta name="y_key" content="c94970a1faf084da">
+    <link href="Quick-R%20%20Boxplots_files/style.css" rel="stylesheet" type="text/css">
+<script async="" src="Quick-R%20%20Boxplots_files/BuKMCyKUvvyXZkMi44LjI.js"></script><script async="" src="Quick-R%20%20Boxplots_files/gtm.js"></script><script async="" src="Quick-R%20%20Boxplots_files/analytics.js"></script><script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-55355690-1', 'auto');
+  ga('send', 'pageview');
+
+</script><style>@media print {#ghostery-purple-box {display:none !important}}</style>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-M63JRHD');</script>
+<!-- End Google Tag Manager -->
+<script src="Quick-R%20%20Boxplots_files/dc.js"></script>
+</head>
+
+<body>
+    <div id="header">
+ <nav>
+        <a href="https://www.statmethods.net/index.html"><img id="logo" src="Quick-R%20%20Boxplots_files/logo%2520new.png" alt="Quick-R Logo"></a>
+        <div id="menu">
+          <ul>
+                <li><a href="https://www.statmethods.net/r-tutorial/index.html">R Tutorial</a></li>
+		        <li>|<a href="https://www.statmethods.net/interface/index.html">R Interface</a></li>
+		        <li>|<a href="https://www.statmethods.net/input/index.html">Data Input</a></li>
+		        <li>|<a href="https://www.statmethods.net/management/index.html">Data Management</a></li>
+		        <li>|<a href="https://www.statmethods.net/stats/index.html">Statistics</a></li>
+			    <li>|<a href="https://www.statmethods.net/advstats/index.html">Advanced Statistics</a></li>
+			    <li>|<a href="https://www.statmethods.net/graphs/index.html">Graphs</a></li>
+			    <li>|<a href="https://www.statmethods.net/advgraphs/index.html">Advanced Graphs</a></li>
+            </ul>
+   </div>
+   </nav>
+
+
+
+</div><!-- header -->
+    <div id="main"><div id="main2">
+            <div id="sidebar">
+<nav>
+                <h2>&lt; <a href="https://www.statmethods.net/graphs/index.html">Graphs Section</a></h2>
+                <ul>
+
+                    <li><a href="https://www.statmethods.net/graphs/creating.html">Creating a Graph </a></li>
+				    <li><a href="https://www.statmethods.net/graphs/density.html">Histograms and Density Plots</a></li>
+					<li><a href="https://www.statmethods.net/graphs/dot.html">Dot Plots</a></li>
+					<li><a href="https://www.statmethods.net/graphs/bar.html">Bar Plots     </a></li>
+					<li><a href="https://www.statmethods.net/graphs/line.html">Line Charts </a></li>
+					<li><a href="https://www.statmethods.net/graphs/pie.html">Pie Charts </a></li>
+					<li style="color:#3476A8;"> Box Plots</li>
+					<li><a href="https://www.statmethods.net/graphs/scatterplot.html">Scatterplots  </a></li>
+					</ul>
+                 </nav>
+            <div class="ad">
+                     <p><a href="https://www.datacamp.com/tracks/data-scientist-with-r"><img src="Quick-R%20%20Boxplots_files/336x280%2520Start%2520Free.png" alt="DataCamp Ad" class="float-left" width="237" height="198"></a></p>
+
+                 </div>
+
+<h2>R in Action</h2>
+               <div class="box">
+                    <p><a href="http://www.manning.com/kabacoff2/?a_aid=RiA2ed&amp;a_bid=5c2b1e1d"><img src="Quick-R%20%20Boxplots_files/kabacoff_cover150.jpg" alt="R in Action" class="float-left" width="73" height="90"></a></p>
+                    <p><a href="http://www.manning.com/kabacoff2/?a_aid=RiA2ed&amp;a_bid=5c2b1e1d" target="_blank">R in Action</a> (2nd ed) significantly expands upon this material.
+					Use promo code <b>ria38</b> for a 38% discount.</p>
+
+                </div>
+
+            </div><!-- sidebar -->
+            <div id="content">
+
+
+
+ <h1>Boxplots </h1>
+
+				<p>Boxplots can be created for individual variables or for variables by group. The format is <strong>boxplot(</strong><em>x</em><strong>, data=)</strong>, where <em>x</em> is a formula and <strong>data=</strong> denotes the data frame providing the data. An example of a <strong>formula </strong>is y~group where a separate boxplot for numeric variable y is generated for each value of group. Add <strong>varwidth=TRUE</strong> to make boxplot widths proportional to the square root of the samples sizes. Add <strong>horizontal=TRUE</strong> to reverse the axis orientation. </p>
+				<p><code># Boxplot of MPG by Car Cylinders
+				<br>
+				  boxplot(mpg~cyl,data=mtcars,&nbsp;main="Car Milage Data", <br>
+&nbsp;&nbsp;			    xlab="Number of Cylinders", ylab="Miles Per Gallon")
+</code></p>
+				<p><a href="https://www.statmethods.net/graphs/images/boxplot1.jpg"><img src="Quick-R%20%20Boxplots_files/smboxplot1.jpg" alt="simple boxplot" width="103" height="103"></a> click to view </p>
+
+        <p><code># Notched Boxplot of Tooth Growth Against 2 Crossed Factors<br>
+				  # boxes colored for ease of interpretation
+                      <br>
+  boxplot(len~supp*dose, data=ToothGrowth, notch=TRUE, <br>
+&nbsp;  col=(c("gold","darkgreen")),<br>
+&nbsp;&nbsp;main="Tooth Growth", xlab="Suppliment and Dose") </code></p>
+                <p><a href="https://www.statmethods.net/graphs/images/boxplot2.jpg"><img src="Quick-R%20%20Boxplots_files/smboxplot2.jpg" alt="colored boxplot" width="103" height="103"></a> click to view</p>
+  <p>In the<strong> notched boxplot</strong>, if two boxes' notches do not overlap this is ‘strong evidence’ their  medians differ (Chambers <em>et al.</em>, 1983, p. 62). </p>
+  <p><strong>Colors recycle</strong>. In the example above, if I had listed 6 colors, each box would have its own color. Earl F. Glynn has created an easy to use <a href="http://research.stowers-institute.org/efg/R/Color/Chart/ColorChart.pdf">list of colors</a> is PDF format. </p>
+  <h2>Other Options </h2>
+  <p>The <strong>boxplot.matrix( )</strong> function in the 		  <a href="http://cran.r-project.org/web/packages/sfsmisc/index.html">sfsmisc</a> package draws a boxplot for each column (row) in a matrix. The <strong>boxplot.n( )</strong> function in the<a href="http://cran.r-project.org/web/packages/gplots/index.html"> <strong>gplots</strong></a> package annotates each boxplot with its sample size. The bplot( ) function in the <a href="http://cran.r-project.org/web/packages/Rlab/index.html">Rlab</a> package offers many more options controlling the positioning and labeling of boxes in the output. </p>
+  <h2>Violin Plots</h2>
+  <p>A violin plot is a combination of a boxplot and a <a href="https://www.statmethods.net/graphs/density.html">kernel density</a> plot. They can be created using the vioplot( ) function from <a href="http://cran.r-project.org/web/packages/vioplot/index.html">vioplot</a> package. </p>
+  <p><code># Violin Plots<br>
+    library(vioplot)<br>
+  x1 &lt;- mtcars$mpg[mtcars$cyl==4]<br>
+    x2 &lt;- mtcars$mpg[mtcars$cyl==6]<br>
+    x3 &lt;- mtcars$mpg[mtcars$cyl==8]<br>
+    vioplot(x1, x2, x3, names=c("4 cyl", "6 cyl", "8 cyl"), <br>
+&nbsp;&nbsp;    col="gold")<br>
+    title("Violin Plots of Miles Per Gallon")</code></p>
+  <p><a href="https://www.statmethods.net/graphs/images/violin.jpg"><img src="Quick-R%20%20Boxplots_files/smviolin.jpg" alt="violin plots" width="103" height="103"></a> click to view </p>
+  <h2>Bagplot - A 2D Boxplot Extension </h2>
+  <p>The <strong>bagplot(x, y)</strong> function in the <a href="http://cran.r-project.org/web/packages/aplpack/index.html">aplpack </a>package
+ provides a bivariate version of the univariate boxplot. The bag 
+contains 50% of all points. The bivariate median is approximated. The 
+fence separates points in the fence from points outside. Outliers are 
+displayed. </p>
+  <p><code># Example of a Bagplot<br>
+  library(aplpack)<br>
+  attach(mtcars)<br>
+  bagplot(wt,mpg, xlab="Car Weight", ylab="Miles Per Gallon",<br>
+    &nbsp;&nbsp;main="Bagplot Example") </code></p>
+  <p><a href="https://www.statmethods.net/graphs/images/bagplot1.jpg"><img src="Quick-R%20%20Boxplots_files/smbagplot1.jpg" alt="bagplot" width="103" height="103"></a> click to view </p>
+  <h2>To Practice</h2>
+<p>Try the boxplot exercises in <a href="https://www.datacamp.com/courses/data-visualization-in-r"> this course on plotting and data visualization in R.</a></p>
+</div><!-- content -->
+            <div class="clearing">&nbsp;</div>
+    </div></div><!-- main --><!-- main2 -->
+    <div id="footer">
+        <p>Copyright © 2017 <a href="https://www.statmethods.net/about/author.html">Robert I. Kabacoff, Ph.D.</a> | <a href="https://www.statmethods.net/about/sitemap.html">Sitemap</a></p>
+    </div>
+
+
+</body></html>

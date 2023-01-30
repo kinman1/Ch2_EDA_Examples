@@ -1,0 +1,176 @@
+---
+title: "Modeling loop template"
+author: "KPI"
+date: "6/15/2020"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+This notebook is a template for doing ANOVA and regression analysis (modeling) on data.
+The workflow is taken from the class, "UoD An Introduction to Statistical Analysis Using R" taken in May/June 2020 as part of the post graduate training programs they offer.
+
+I've tried to create a template for modeling data using either regression or ANOVA, including the preliminary EDA.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE, fig.align = "center")
+#path = setwd("/Users/KeithMacBookPro/") # Path for MacBookPro; comment out if on MacPro
+path = setwd("/Volumes/InmanDrive4/Dropbox (Personal)/KPI/University_of_Dundee/Dissertation/Learning/UoD An Introduction to Statistical Analysis Using R") # Path for MacPro; comment out if on MacBookPro
+getwd()
+```
+
+```{r Libraries and generic setup}
+library (knitr)
+library(pastecs)
+library(readr)
+library(skimr)
+library(ggplot2)
+library(car)
+library(dplyr)
+library(formattable)
+library(cowplot)
+library(CGPfunctions)
+library(kableExtra)
+library(captioner)
+
+fig_nums <- captioner(prefix = "**Figure**")
+table_nums <- captioner(prefix = "**Table**")
+```
+
+**Exploration of dataset 4**
+
+```{r Load-data-and-set-structure}
+DataName <- read_csv(paste0(path,"/dataset.csv"))
+
+# Set column data types as necessary; as.numeric, as.factor, etc. e.g., "DataName$column <- as.factor(DataName$column)
+
+names(data4)
+str(data4)
+
+```
+
+*Explore first with boxplots*
+
+```{r Boxplot-EDA, fig.cap = "Figure 1 Caption", fig.align="center"}
+boxplot(x ~ y, DataName, col= "green", notch = TRUE, xlab="X Axis label", ylab="Y axis label", boxwex = 0.3) #No need for "par" here because used the "as a function of" tilde, which makes as many boxplots as there are factors in the second variable (in this case, sex)
+```
+
+*Explore with density distributions*
+
+Density distribution with all factors at once.
+
+```{r Density-distribution-EDA, fig.cap="Figure 2 Density plot of all data", fig.align="center"}
+# plot densities of both factors as one vector and determine the shape of the curve:
+ggplot(DataName, aes(x = "name of response column")) + 
+  geom_density(fill = "steelblue", alpha = 0.3) +
+  geom_vline(aes(xintercept=mean(birthwt)),
+            color="blue", linetype="dashed", size=0.2)
+
+```
+
+But it may also be useful to plot each factor separately, to see what the distribution of weights is separately for females and males, and confirm that the first plot is indeed an overlay of two different distributions.
+
+```{r Alt-density-distr, fig.cap="Figure 3: Density plot of birthweight by sex", fig.align="center"}
+
+# Now separate plot each factor separately: 
+
+ggplot(data4, aes(x = "name of response column(numeric)", fill = "name of factor column (factor names)")) + 
+  geom_density(color = alpha("black", 0.2), alpha = 0.5) # The "fill= sex" signals to R that each factor under sex should be plotted separately, and each factor filled with a different color. Not intuitive, but the truth. 
+
+
+```
+
+*May want to separate each factor into a separate density plot, rather than overlay as above (prettier, but same information in output as above)*
+
+```{r Alt2-density-distr, fig.cap="Figure 4: Birthweight by sex in separate plots", fig.align="center"}
+
+subName1 <- DataName %>%
+  select(col1,col2) %>%
+  filter(col1 == "factor1 name")
+
+subName2 <- DataName %>%
+  select(col1,col2) %>%
+  filter(col1 == "factor2 name")
+
+p <- ggplot(suName1, aes(x = col2)) + 
+  geom_density(alpha = 0.2, color = "red", fill = "red") +
+  xlab("X axis label") +
+  geom_vline(aes(xintercept=mean(col2)),
+            color="blue", linetype="dashed", size=0.2)
+
+q <- ggplot(subName2, aes(x = col2)) + 
+  geom_density(alpha = 0.2, color = "steelblue", fill = "lightblue") +
+  xlab("X axis label") +
+  scale_y_continuous(breaks = seq(0, 0.3, 0.1 ), limits = c(0, 0.3)) +
+  geom_vline(aes(xintercept=mean(col2)),
+             color = "blue", linetype = "dashed", size = 0.2)
+
+plot_grid(p,q)  # from cowplot to put two ggplots on the same page; par does not work in ggplot
+
+```
+
+*Optional: Determine the descriptive statistics.*
+
+```{r Print-table}
+options(scipen = 999)
+kable(summary(DataName)) # all stats
+kable(stat.desc(subset(DataName, col1 == "factor1 name"))) #Stats for factor 1
+kable(stat.desc(subset(DataName, col1 == "factor2 name"))) #Stats for factor 2
+#descr(DataName)
+
+```
+
+*For categorical data, use anova*
+
+aov(response variable, categorical variable) is the simplest analysis of variation package.
+summary(modelname) gives the minimal anova table (frequently adequate).
+
+Anova(modelname) takes the aov analysis and allows for unordered (type = II) or ordered (type = III) analysis, and returns the anova table reflecting that analysis anova(model1,model2) will compare two (or more) anova analyses, and provide data on whether the two models are different or not; if not, the simpler model is chosen.
+
+TukeyHSD() is the honest signficant differences, and returns both a table and a graph that plots the pair-wise p values for the categorical variables.
+This allows for a determination as to which pairs contribute the most and the least variation.
+
+*For numeric data, use lm (linear regression model)* lm(formula = x \~ y)
+
+```{r ANOVA-model}
+# Building an analysis of variation model, looking at the relationship of sex to birthweight (does the factor(s) have an effect on the response variable?)
+# Result is an anova table, including degrees of freedom, F statistic and p value
+
+modelname <- aov("response variable column name" ~ "categorical data column name", DataName)
+
+summary(modelname) # This provides the minimum anova table, where the factors are ordered (default type III analysis). Type II (unordered analysis) is simpler and may be more appropriate. 
+
+Anova(modelname, type = "II")
+
+
+TukeyHSD(modelname)
+par(mfrow = c(1,2))
+plot(TukeyHSD(modelname))
+TukeyHSD(model5.4)
+
+```
+
+*If desired, can plot the F-statistic probability density curve and get the p value, using the Shiny app (/Users/KeithMacPro/Documents/GitHub/intro-stats/dist_calc/app.R). This app is limited, though, to \<50 degrees of freedom and a fairly low F statstic. High F stats are not plottable on this graph, and easily signal high significance anyway.* ![](paste0(path,name%20of%20file.png))
+
+*Now check the model*
+
+```{r F-stat-pdf}
+par(mfrow = c(2,2))
+
+plot(modelname)
+```
+
+**Important quote from workbook, worth quoting here**
+
+What are residuals & what is being checked here?
+Residuals are the difference between the Y value predicted by the model and the actual data point for each value of X.
+The model checking criterion which matters is NOT that the raw data are normally distributed, but that **the model residuals are normally distributed.** It is also important that the variance in the residuals is relatively constant across the range of fitted values for the model (approximately a straight line through some point (median?) in the upper right plot).
+It is these two assumptions which are being checked (and satisfied!) in the plots above
+
+Look for a wedge shape in the Residuals plot, and a relatively good visual fit in the Q-Q plot.
+A significant S curve in the Q-Q plot suggests that transforming the data before modeling may be a better analysis.
+
+*Reporting:*
+
+Reporting language: *"The 'response variable' was modelled as a function of the 'categorical factors'. Both factors were/were not significant in determingin 'response variable' (factor1; F~1,293~ = 110.67; p \< 0.001), (factor2; F~2,293~ = 160.57; p \< 0.001), but there was no significant interaction. Final model residuals were checked for constancy of variance and normality and found to be acceptable"*

@@ -1,0 +1,212 @@
+---
+title: "Differences and similarities between blandr.stats and Bland-Lehman stats"
+authors: KPI
+date: "2021/08_15"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+
+library(captioner)
+library(cowplot)
+library(BlandAltmanLeh)
+library(blandr)
+library(dplyr)
+library(ggdist)
+library(ggExtra)
+library(ggpubr)
+library(ggplot2)
+library(ggthemes)
+library(janitor)
+library(kableExtra)
+library(knitr)
+library(purrr)
+library(qqplotr)
+library(readr)
+library(tidyquant)
+library(tidyr)
+library(tidyverse)
+library(zeallot)
+
+
+source("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/library.R")
+```
+
+#### *Purpose*
+
+I have noticed that there seems to be a difference between the upper and lower limits of agreement (LoA) between the custom function that I wrote for a bland-altman plot and those limits as calculated in the blandr package.
+
+Specifically, my plot uses the statistics derived from the BlandAltmanLeh package, which is called from *'bland.altman.stats'* function, while I have, as legacy code, performed a data integrity check using the blandr.stats function. A check of the LoA versus upper and lower limits, and what is graphed, shows difference.
+
+This notebook explores the source of the difference.
+
+Start with using data from the BlandAltman_EFM_likeLTD_ston_plotsv2.Rmd file.
+
+```{r}
+
+# Create dataframe and extract specific data for Bland Altman analysis
+
+MT <- read.csv("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Data/Output_files/AllResults_Data/AllResults_Table.csv")
+
+MT$TotDNA <- as.factor(MT$TotDNA)
+MT$Program <- as.factor(MT$Program)
+MT$Stutter <- as.factor(MT$Stutter)
+
+# Need to turn the TotDNA into a factor (rather than integer) in order to plot using it as a group in ggplot (integer can't be used to group values, unless binning them). Before writing this step, I got an error in later code that MT$DNA did not exist, which of course it did. Finally realized you can't group by integers. The other two need to be factors as well. 
+
+```
+
+#### Subset dataframe with LR from one program (including columns needed for the subsetting task)
+
+For this analysis, I will use both the efficiency and the logLR. They should show the same thing, inasmuch as the differences are calculated on the sample/program/POI, and there should be no differences based on the contributor RMP.
+
+This first analysis is done using ***efficiency***
+
+```{r}
+
+baEFM <- MT %>%
+  dplyr::select(Sample,Program,TotlogLR,Eff,Stutter,TCon,TotDNA) %>%
+  filter(Program == "EFM", Stutter == "Absent")
+
+baEFM <- na.omit(baEFM)
+
+# Subset dataframe with LR from the other program (including columns needed for the subsetting task)
+baLTD <- MT %>%
+  dplyr:: select(Sample,Program,TotlogLR,Eff,Stutter,TCon,TotDNA) %>%
+  filter(Program == "likeLTD",Stutter == "Absent")
+baLTD <- na.omit(baLTD)
+```
+
+Merge subsetted dataframes into one using *efficiency* for the Bland Altman calculations
+
+```{r}
+
+baEff <- baEFM %>%
+  inner_join(baLTD, by = c("Sample","TCon")) %>% 
+  dplyr::select(Sample,Eff.x,Eff.y,TotDNA.x,TotDNA.y)
+
+baLR <- baEFM %>% 
+  inner_join(baLTD, by = c("Sample", "TCon")) %>% 
+  dplyr::select(Sample, TotlogLR.x, TotlogLR.y, TotDNA.x, TotDNA.y)
+
+
+```
+
+Check on data to ensure integrity and adherence to proper format
+
+```{r}
+
+blandr.statsEff <- as.data.frame(blandr.statistics(baEff$Eff.x,baEff$Eff.y))
+bland_Leh.stats <- bland.altman.stats(baEff$Eff.x, baEff$Eff.y)
+
+
+#blandr.statsEff <- as.data.frame(blandr.statistics(baEff$Eff.x,baEff$Eff.y)) %>% 
+  #select(means, differences)
+  
+
+bland_Leh.stats <- bland.altman.stats(baEff$Eff.x, baEff$Eff.y) # Create list of B-A stats using the Bland-Lehman stats
+bland_Leh.statsEff <- as.data.frame(c(bland_Leh.stats[1],bland_Leh.stats[2])) #select only those columsn with means/differences
+
+```
+
+```{r}
+
+blandr.data <- as.data.frame(t(blandr.statsEff)) %>% 
+  dplyr::select(1) %>% 
+  rename("blandr" = 1)
+
+
+bland_Leh.stats <- as.data.frame(unlist(bland_Leh.stats$groups))
+```
+
+```{r}
+
+gg <- ggplot(data = bland_Leh.statsEff, mapping = aes(sample = diffs)) +
+  stat_qq_band(bandType = "ks", mapping = aes(fill = "Kolmogorov-\nSmirnoff"), alpha = 0.1) +
+  stat_qq_band(bandType = "boot", mapping = aes(fill = "Bootstrap"), alpha = 0.3) +
+  stat_qq_band(mapping = aes(fill = "Normal"), alpha = 0.3) +
+  stat_qq_point(shape = 18, size =2, color = "steelblue") +
+  stat_qq_line() +
+  labs(x = "Theoretical quantiles", y = "Sample quantiles")
+
+gg
+
+```
+
+```{r}
+baEff_Diff <- baEff %>% 
+  mutate(Diff = Eff.x-Eff.y) %>% 
+  dplyr::select(1,2,3,4,6) %>% 
+  rename("TotDNA" = TotDNA.x)
+
+gg1 <- ggplot(data = baEff_Diff, mapping = aes(sample = Diff)) +
+  #stat_pp_band(bandType = "ks", mapping = aes(fill = "Kolmogorov-Smirnoff"), alpha = 0.3) +
+  #stat_pp_band(bandType = "boot", mapping = aes(fill = "Bootstrap"), alpha = 0.5) +
+  stat_pp_band() +
+  stat_pp_line() +
+  stat_pp_point() +
+  labs(x = "Probability points", y = "Cumulative probability")
+
+gg1
+
+```
+
+```{r}
+
+
+gg2 <- ggplot(data = baEff_Diff, mapping = aes(sample = Diff, color = TotDNA, fill = TotDNA)) +
+  stat_qq_band(alpha = 0.5, mapping = aes(fill = TotDNA)) +
+  stat_qq_line() +
+  stat_qq_point(alpha = 0.3) +
+  facet_wrap(~ TotDNA) +
+  labs(x = "Theoretical quantiles", y = "Sample quantiles") +
+  theme_bw()
+gg2
+  
+```
+
+```{r}
+gg1 <- ggplot(data = baEff_Diff, mapping = aes(sample = Diff)) +
+  stat_pp_band(alpha = 0.5, mapping = aes(fill = TotDNA)) +
+  stat_pp_line() +
+  stat_pp_point(alpha = 0.3) +
+  facet_wrap(~ TotDNA) +
+  labs(x = "Probability points", y = "Cumulative probability")
+
+gg1
+```
+
+#### Fitting a distribution to the data
+
+Using the 'fitdistrplus' package, find the distribution that best describes the data.
+
+```{r}
+
+library(fitdistrplus)
+
+## Modify dataframe to use
+baLR_Diff <- baLR %>% 
+  mutate(Diff = abs(TotlogLR.x-TotlogLR.y)) %>% 
+  dplyr::select(1,2,3,4,6) %>% 
+  rename("TotDNA" = TotDNA.x)
+
+plotdist(baLR_Diff$Diff, histo = TRUE, demp = TRUE)
+
+DistrFit <- descdist(baLR_Diff$Diff, boot = 1000)
+KPITable(unlist(DistrFit))
+
+fn <- fitdist((baLR_Diff$Diff), "norm")
+fw <- fitdist((baLR_Diff$Diff), "weibull")
+fg <- fitdist((baLR_Diff$Diff), "gamma")
+summary(fw)
+summary(fg)
+summary(fn)
+par(mfrow= c(2,2))
+plot.legend <- c("Weibull", "Gamma", "Normal")
+denscomp(list(fw,fg,fn), legendtext = plot.legend)
+ppcomp(list(fw,fg,fn), legendtext = plot.legend)
+cdfcomp(list(fw,fg,fn), legendtext = plot.legend)
+qqcomp(list(fw,fg,fn), legendtext = plot.legend)
+```

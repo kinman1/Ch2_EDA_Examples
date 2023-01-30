@@ -1,0 +1,209 @@
+---
+title: "Bland Altman analysis of two methods Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+This documents the code for performing a Bland-Altman analysis of two methods, and preparing graphs illustrating the results. It relies on the blandr package, as well as tidyverse and ggplot2 Created KPI Feb 20, 2020
+
+```{r}
+library (tidyverse)
+library (blandr)
+library(ggthemes)
+library(tidyr)
+library(tidyverse)
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(kableExtra)
+library(knitr)
+library(ggpubr)
+library(janitor)
+
+source("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/library.R")
+
+```
+
+```{r}
+
+# Create dataframe and extract specific data for Bland Altman analysis
+
+MT <- read.csv("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Data/Output_files/AllResults_Data/AllResults_Table.csv")
+
+MT$TotDNA <- as.factor(MT$TotDNA) # Need to turn the TotDNA into a factor (rather than integer) in order to plot using it as a group in ggplot (integer can't be used to group values, unless binning them). Before writing this step, I got an error in later code that MT$DNA did not exist, which of course it did. Finally realized you can't group by integers. 
+```
+
+# Subset dataframe with LR from EFM with stutter present (including columns needed for the subsetting task)
+
+```{r}
+
+baEFMoff <- MT %>%
+  select(Sample,Program,TotlogLR,Eff,StFilt,TCon,TotDNA) %>%
+  filter(Program == "EFM",StFilt =="off")
+
+baEFMoff <- na.omit(baEFMoff)
+
+# Subset dataframe with LR from EFM with stutter absent (including columns needed for the subsetting task)
+baEFMon <- MT %>%
+  select(Sample,Program,TotlogLR,Eff,StFilt,TCon,TotDNA) %>%
+  filter(Program == "EFM",StFilt == "on")
+baEFMon <- na.omit(baEFMon)
+```
+
+# Merge subsetted dataframes into one for Bland Altman calculations
+
+```{r}
+
+baEff <- baEFM %>%
+  inner_join(baLTD, by = c("Sample","TCon")) %>% 
+  select(Sample,Eff.x,Eff.y,TotDNA.x,TotDNA.y)
+
+
+```
+
+# Check on data to ensure integrity and adherence to proper format
+
+```{r}
+
+blandr.data.preparation(baEff$Eff.x, baEff$Eff.y, sig.level = 0.95) 
+
+#Prepares statistics used in calculating the Bland-Altman plots for methods Lab Retriever and likeLTD)
+bland.statsEff <- blandr.statistics(baEff$Eff.x, baEff$Eff.y) 
+```
+
+# Standard bland altman plot, using the script from the blandr package
+
+```{r}
+
+blandr.draw(baEff$Eff.x, baEff$Eff.y, method1name = "EFM",
+            method2name = "likeLTD",
+            plotTitle = "Bland-Altman plot:\nEFM/likeLTD Efficiency: stutter absent",
+            sig.level = 0.95, LoA.mode = 1, annotate = FALSE, ciDisplay = TRUE,
+            ciShading = TRUE, normalLow = FALSE, normalHigh = FALSE,
+            lowest_y_axis = FALSE, highest_y_axis = FALSE, point_size = 0.8,
+            overlapping = FALSE, plotter = "ggplot2", x.plot.mode = "means",
+            y.plot.mode = "difference", plotProportionalBias = FALSE,
+            plotProportionalBias.se = TRUE, assume.differences.are.normal = TRUE)
+
+#ggsave2("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/Statistical Testing and EDA templates/Bland_Altman/BA_EFMvlikeLTD.pdf", width = 7, height = 5)
+```
+
+
+```{r}
+
+balLR <- baEFM %>%
+  inner_join(baLTD, by = c("Sample","TCon")) %>% 
+  select(Sample,TotlogLR.x,TotlogLR.y,TotDNA.x,TotDNA.y)
+
+
+```
+
+# Check on data to ensure integrity and adherence to proper format
+
+```{r}
+
+blandr.data.preparation(balLR$TotlogLR.x, balLR$TotlogLR.y, sig.level = 0.95) 
+
+#Prepares statistics used in calculating the Bland-Altman plots for methods Lab Retriever and likeLTD)
+bland.statslLR <- blandr.statistics(balLR$TotlogLR.x, balLR$TotlogLR.y) 
+
+```
+
+# Standard bland altman plot, using the script from the blandr package
+
+```{r}
+
+blandr.draw(balLR$TotlogLR.x, balLR$TotlogLR.y, method1name = "EFM",
+            method2name = "likeLTD",
+            plotTitle = "Bland-Altman plot:\nEFM/likeLTD Total logLR: stutter absent",
+            sig.level = 0.95, LoA.mode = 1, annotate = FALSE, ciDisplay = TRUE,
+            ciShading = TRUE, normalLow = FALSE, normalHigh = FALSE,
+            lowest_y_axis = FALSE, highest_y_axis = FALSE, point_size = 0.8,
+            overlapping = FALSE, plotter = "ggplot2", x.plot.mode = "means",
+            y.plot.mode = "difference", plotProportionalBias = FALSE,
+            plotProportionalBias.se = TRUE, assume.differences.are.normal = TRUE)
+
+#ggsave2("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/Statistical Testing and EDA templates/Bland_Altman/BA_EFMvlikeLTD.pdf", width = 7, height = 5)
+```
+# Various plot options using ggplot; can use in addition to or separate from the blandr.draw function
+
+# Scatter plot with 4 plots, one for each amount of Total DNA (TotDNA) of the sample
+
+```{r}
+
+ggplot(balLR, aes(x = bland.statslLR$means, y = bland.statslLR$differences)) +
+  geom_point() + geom_text(aes(label=Sample), hjust=2, color = "blue") +
+  facet_wrap(~ TotDNA.y) +
+  labs(title = "Bland-Altman plot \nEFM/likeLTD stutter absent", x = "Means", y = "Differences")
+
+#ggsave("BAplot_facet_pts.pdf", width = 13, height = 10)
+ #+
+  # theme_bw()
+
+```
+
+# Scatter plot with single plot, each amount of TotDNA color-coded
+
+```{r}
+
+ggplot(data = balLR) +
+  geom_point(mapping = aes(x = bland.statslLR$means, y = bland.statslLR$differences, color = TotDNA.y)) +
+  labs(title = "Bland-Altman plot \nEFM/likeLTD stutter absent", x = "Means", y = "Differences") +
+  theme_bw()
+
+```
+
+# Smoothed plots of 4 DNA amounts (not that informative)
+
+```{r}
+
+ggplot(data = balLR) +
+  geom_smooth(mapping = aes(x = bland.statslLR$means, y = bland.statslLR$differences, color = TotDNA.y),
+              show.legend = TRUE) +
+  labs(title = "Bland-Altman plot \nEFM/likeLTD stutter absent", x = "Means", y = "Differences") +
+  theme_bw()
+
+```
+
+# All data with a single smoothed line, with TotDNA color-coded
+
+```{r}
+
+ggplot(data = balLR, mapping = aes(x = bland.statslLR$means, y = bland.statslLR$differences)) +
+  geom_point(mapping = aes(color = TotDNA.y, shape = TotDNA.y)) +
+  geom_smooth() +
+  labs(title = "Bland-Altman plot \nEFM/likeLTD stutter absent", x = "Means", y = "Differences") +
+  theme_bw()
+
+```
+
+# All data with points plotted and smoothed line for each amt of TotDNA
+
+```{r}
+
+ggplot(data = balLR, mapping = aes(x = bland.statslLR$means, y = bland.statslLR$differences)) +
+  geom_point(mapping = aes(color = TotDNA.y, shape = TotDNA.y)) +
+  geom_smooth(mapping = aes(x = bland.statslLR$means, y = bland.statslLR$differences, color = TotDNA.y),
+            show.legend = TRUE) +
+            labs(title = "Bland-Altman plot \nEFM/likeLTD stutter off", x = "Means", y = "Differences") +
+            theme_bw()
+
+```
+
+# 4 plots, one for each amt of TotDNA, including smooth line, color, and shapes
+
+```{r}
+
+ggplot(data = balLR, mapping = aes(x = bland.statslLR$means, y = bland.statslLR$differences)) +
+      geom_point(mapping = aes(color = TotDNA.y, shape = TotDNA.y)) +
+      geom_smooth(mapping = aes(x = bland.statslLR$means, y = bland.statslLR$differences, color = TotDNA.y),
+              show.legend = TRUE) +
+      facet_wrap(~ TotDNA.y) +
+      labs(title = "Bland-Altman plot \nEFM/likeLTD stutter off", x = "Means", y = "Differences") +
+      theme_bw()
+```
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.

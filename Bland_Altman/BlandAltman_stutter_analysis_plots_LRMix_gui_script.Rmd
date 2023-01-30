@@ -1,0 +1,232 @@
+---
+title: "Bland Altman analysis of two methods Notebook"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+This documents the code for performing a Bland-Altman analysis of two methods, and preparing graphs illustrating the results. It relies on the blandr package, as well as tidyverse and ggplot2
+Created KPI Feb 20, 2020
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.align = "center")
+
+# Chunk added Sept 8, 2020
+library(knitr)
+library(pastecs)
+library(readr)
+library(skimr)
+library(ggplot2)
+library(GGally)
+library(car)
+library(dplyr)
+library(formattable)
+library(cowplot)
+library(CGPfunctions)
+library(kableExtra)
+library(captioner)
+library(tidyr)
+library(tidyverse)  
+library(stringr)
+library(ggpubr)
+library(ggthemes)
+#library(blandr)
+library(BlandAltmanLeh)
+library(ggExtra)
+
+source("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/library.R")
+fig_nums <- captioner(prefix = "**Figure**")
+table_nums <- captioner(prefix = "**Table**")
+
+## Coding note:
+# Some packages have similar commands (select, for example). Throughout the code in those places where this occurs, an error might be thrown if the incorrect package command is used. Thus in some places you'll see package::command in place of merely the command to signify which package to use in applying the command. 
+
+
+```
+
+
+```{r}
+# Create dataframe and extract specific data for Bland Altman analysis
+
+MT <- read.csv("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Data/Software/LRmixStudio-2/LRMix_scripts/MT_LRM_gui_script.csv")
+
+# MT$TotDNA <- as.factor(MT$TotDNA) # Need to turn the TotDNA into a factor (rather than integer) in order to plot using it as a group in ggplot (integer can't be used to group values, unless binning them). Before writing this step, I got an error in later code that MT$DNA did not exist, which of course it did. Finally realized you can't group by integers. 
+```
+
+
+# Subset dataframe with LR from one program (including columns needed for the subsetting task)
+```{r}
+
+baG <- MT %>%
+  
+  
+  select(SampleName,TotlogLR,Source) %>%
+  filter(Source == "gui")
+
+# baOff <- na.omit(baOff)
+
+# Subset dataframe with LR from the other program (including columns needed for the subsetting task)
+baS <- MT %>%
+  
+  select(SampleName,TotlogLR,Source) %>%
+  filter(Source == "script")
+#baOn <- na.omit(baOn)
+```
+
+# Merge subsetted dataframes into one for Bland Altman calculations
+```{r}
+
+ba <- baG %>%
+  
+  left_join(baS, by = "SampleName", suffix = c(".gui", ".scr")) %>% 
+  #inner_join(baOn, by = NULL)# %>%
+  select(SampleName,TotlogLR.gui,TotlogLR.scr)
+
+#ba <- filter(ba, TCon.Off == TCon.On)
+
+# ba <- ba[-25,]
+
+```
+
+
+# Standard KPI bland altman plot, using the script from the source ba_KPI
+```{r}
+baScrGui <- baPlotKPI(ba$TotlogLR.gui, ba$TotlogLR.scr) +
+  #geom_text(aes(label = baM_T$SampleName), hjust=1.5, size = 8 /.pt, color = "blue3") +
+  geom_smooth(method = lm, se = FALSE, color = "red", size = .3, fullrange = TRUE) +
+  labs(title = "Bland-Altman plot: LRmix gui vs. script") +
+  theme_stata(base_family = "serif") +
+  panel_border(color = "black") +
+  scale_color_stata() +
+  theme(legend.position = "bottom", plot.background = element_rect(fill = "lightgray"))
+
+baScrGui
+
+```
+
+```{r}
+#Use the ba_PF_KPI function to calculate and return the values for the means and differences for the two methods 
+sdScrGui <- ba_PF_KPI(ba$TotlogLR.gui, ba$TotlogLR.scr)
+
+# Return the standard deviation for either the differences (d) or means (m)
+sdd <- sd(sdScrGui$d)
+# Various plot options using ggplot; can use in addition to or separate from the blandr.draw function
+```
+
+
+```{r}
+# Create 1000 mismatched pairs of LRs, and calculate the BA stats for each of the 1000 pairs using ba_PF__KPI function. The funtion returns a table of the differences and means for each mismatched set. Create a table 
+sdIterd <- data.frame(NULL) # Create a table to hold the standard deviations of the differences for each mismatched set
+i = 1 # initialize the number of iterations
+baScrGuiIter <- ba$TotlogLR.gui # Create an object to hold the LR results from one method (method1)
+
+while (i <1001) {   # Perform 1000 mismatched sets
+  baScrGuiIter <- sample(baScrGuiIter,size = 29, replace = FALSE) # Shuffle the LRs of one method (method1)
+  sdScrGui <- ba_PF_KPI(baScrGuiIter, ba$TotlogLR.scr) # Create a table of mismatched results between method1 and method2
+  
+  sdIterd <- data.frame(rbind(sdIterd,sd(sdScrGui$d))) # Update the st dev table with the sd from latest mistmatched set 
+ 
+  i = i + 1 # Update the iteration number
+}
+
+colnames(sdIterd) <-  "StDev" # Change the row name to StDev
+
+```
+
+```{r}
+sddPlot <- ggplot(sdIterd, aes(x = StDev)) +
+  geom_histogram(aes(y = ..density..), alpha = 0.5, color = "darkgray", binwidth = 0.3) +
+  geom_density(fill = "red", alpha = 0.5, bw = 0.3, stat = "density") +
+  scale_x_continuous(breaks = seq(-0.5,20,0.5)) + 
+  geom_vline(xintercept = sdd, linetype = "dashed", color = "blue", size = 0.5) +
+  annotate("text", x = 2, y = 0.25, label = paste("SDtrue = ",signif(sdd, 2))) +
+  geom_vline(xintercept = mean(sdIterd$StDev), linetype = "dashed", color = "steelblue", size = 0.5) +
+  annotate("text", x = 5, y = .75, label = paste("SDmismatch = ",signif(mean(sdIterd$StDev,0)))) +
+  labs(title = "Distribution of SD of differences\n1000 iterations of mis-matched pairs", x = "Standard Deviation") +
+  
+  theme_stata(base_family = "serif") +
+  panel_border(color = "black") +
+  scale_color_stata()
+
+sddPlot
+```
+
+
+# Scatter plot with 4 plots, one for each amount of Total DNA (TotDNA) of the sample
+```{r}
+
+ggplot(ba, aes(x = bland.stats$means, y = bland.stats$differences)) +
+  geom_point() + geom_text(aes(label=SampleName), hjust=1.5, color = "blue") +
+  #facet_wrap(~ TCon.On) +
+  labs(title = "Bland-Altman plot \nEFM_LRMix gui vs. script", x = "Means", y = "Differences")
+
+# ggsave("BAplot_facet_pts.pdf", width = 13, height = 10)
+ #+
+  # theme_bw()
+
+```
+
+
+# Scatter plot with single plot, each amount of TotDNA color-coded
+```{r}
+
+ggplot(data = ba) +
+  geom_point(mapping = aes(x = bland.stats$means, y = bland.stats$differences, color = SampleName)) +
+  labs(title = "Bland-Altman plot \nEFM_LRMix gui vs. script", x = "Means", y = "Differences") +
+  theme_bw()
+
+```
+
+
+# Smoothed plots of 4 DNA amounts (not that informative)
+```{r}
+
+ggplot(data = ba) +
+  geom_smooth(mapping = aes(x = bland.stats$means, y = bland.stats$differences, color = SampleName),
+              show.legend = TRUE) +
+  labs(title = "Bland-Altman plot \nEFM_LRMix gui vs. script", x = "Means", y = "Differences") +
+  theme_bw()
+
+```
+
+
+# All data with a single smoothed line, with TotDNA color-coded
+```{r}
+
+ggplot(data = ba, mapping = aes(x = bland.stats$means, y = bland.stats$differences)) +
+  geom_point(mapping = aes(color = SampleName)) +
+  geom_smooth() +
+  labs(title = "Bland-Altman plot \nEFM_LRMix gui vs. script", x = "Means", y = "Differences") +
+  theme_bw()
+
+```
+
+
+# All data with points plotted and smoothed line for each amt of TotDNA
+```{r}
+
+ggplot(data = ba, mapping = aes(x = bland.stats$means, y = bland.stats$differences)) +
+  geom_point(mapping = aes(color = TotDNA.On, shape = TotDNA.On)) +
+  geom_smooth(mapping = aes(x = bland.stats$means, y = bland.stats$differences, color = TotDNA.On),
+            show.legend = TRUE) +
+            labs(title = "Bland-Altman plot \nlikeLTD stutter Off/On", x = "Means", y = "Differences") +
+            theme_bw()
+
+```
+
+
+# 4 plots, one for each amt of TotDNA, including smooth line, color, and shapes
+```{r}
+
+ggplot(data = ba, mapping = aes(x = bland.stats$means, y = bland.stats$differences)) +
+      geom_point(mapping = aes(color = TotDNA.On, shape = TotDNA.On)) +
+      geom_smooth(mapping = aes(x = bland.stats$means, y = bland.stats$differences, color = TotDNA.On),
+              show.legend = TRUE) +
+      facet_wrap(~ TCon.On) +
+      labs(title = "Bland-Altman plot \nlikeLTD stutter Off/On", x = "Means", y = "Differences") +
+      theme_bw()
+```
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* 
+
