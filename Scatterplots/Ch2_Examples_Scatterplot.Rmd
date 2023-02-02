@@ -1,0 +1,197 @@
+---
+title: "Chapter 2 Examples Scatterplot"
+output:
+  html_document:
+    df_print: paged
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+This document is derived from a .Rmd notebook entitled
+"BlandAltman_stutter_analysis_EFM_likeLTD.Rmd" last saved on 2021.05.30.
+That original notebook documented the code for performing a Bland-Altman
+analysis of two methods, and preparing graphs illustrating the results.
+For the purpose of this notebook, however, the code used for a
+scatterplot analysis is used to illustrate the creation of a scatterplot
+for Chapter 2 of the dissertation.
+
+```{r setup}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	results = TRUE
+)
+library(tidyverse)
+library(blandr) # required for calculating the Bland-Altman stats function, which calculates the difference, mean, and confidence intervals used in all BA plots
+library(BlandAltmanLeh) # required for the customized BA function that I wrote (baPlotKPI), called from source below.
+library(ggthemes) # required for the use of some plot themes, here 'stata' theme
+library(ggExtra) # required for ggmarginal if used. 
+library(cowplot) # required for some plotting parameters; here panel_border and ggsave2
+library(captioner) # required to caption figures and tables; the fig_nums and table_nums in this setup chunk is part of captioner
+library(zeallot) # Used to unpack a list; needed for the Price-Fischer analysis
+library(kableExtra)
+library(ggpirate) # Used for creating pirateplots with more descriptive statistical information. 
+library(beanplot) # Used for creating beanplots; used here as a split bean
+
+source("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/library.R")
+
+#fig_nums <- captioner(prefix = "**Figure**")
+# table_nums <- captioner(prefix = "**Table**")
+```
+
+```{r Create dataframe}
+# Create dataframe and extract specific data for Bland Altman analysis: data for minor contributor E for this specific analysis
+
+MT <- read.csv("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/Ch2_EDA_Examples/sample_data.csv")
+
+KPITable(MT)  
+```
+
+#### Calculate the correlation coefficients
+
+I want to find the correlation between and within programs and stutter,
+by total input DNA, and then insert them into the scatterplots:
+
+EFM_Absent : likeLTD_Absent for 500 or 100 ng
+
+EFM_Present : likeLTD_Present for 500 or 100 ng
+
+EFM_Absent : EFM_Present for 500 or 100 ng
+
+likeLTD_Absent : likeLTD_Present for 500 or 100 ng
+
+The approach will be to first create tables subsetted by TotDNA (total
+input DNA) and Program (which creates two datatables), merging the two
+data tables into one, and then using the 'cor' function on the entire
+merged table to get a matrix of Pearson correlation values for pairs of
+variables.
+
+```{r Create-500pg-dataframe-for-each-program/stutter-combination}
+# 
+smallMT <- MT[,-c(2,4,7,8,10:33)] #Create a smaller datatable without unnecessary columns
+
+EFM500 <- subset(smallMT, Pr == "EFM" & TotDNA == 500) |> 
+  select(1,2,4)
+
+EFM500 <- EFM500 |> 
+  pivot_wider(names_from = St, values_from = lLR)
+
+likeLTD500 <- subset(smallMT, Pr == "likeLTD" & TotDNA == 500) |> 
+    select(1,2,4)
+
+likeLTD500 <- likeLTD500 |> 
+  pivot_wider(names_from = St, values_from = lLR)
+
+Pr500 <- likeLTD500 |> 
+  inner_join(EFM500, by = "Sample") |> 
+  rename(l_Present = "Present.x", l_Absent = "Absent.x", E_Present = "Present.y", E_Absent = "Absent.y")
+
+C500P <- as.data.frame(cor(Pr500)) #The cor(dataframe) command creates a matrix containing the correlation coefficients calculated for  all combinations of variables. From this table one can abstract the appropriate one to insert into the graphs later. 
+
+EFM500St <- signif(C500P[5,4], 3)
+like500St <- signif(C500P[3,2], 3)
+```
+
+```{r Create-100pg-dataframe-for-each-program/stutter-combination}
+# 
+smallMT <- MT[,-c(2,4,7,8,10:33)] # Create a smaller table without unnecessary columns
+
+EFM100 <- subset(smallMT, Pr == "EFM" & TotDNA == 100) |> 
+  select(1,2,4)
+
+EFM100 <- EFM100 |> 
+  pivot_wider(names_from = St, values_from = lLR)
+
+likeLTD100 <- subset(smallMT, Pr == "likeLTD" & TotDNA == 100) |> 
+    select(1,2,4)
+
+likeLTD100 <- likeLTD100 |> 
+  pivot_wider(names_from = St, values_from = lLR)
+
+Pr100 <- likeLTD100 |> 
+  inner_join(EFM100, by = "Sample") |> 
+  rename(l_Present = "Present.x", l_Absent = "Absent.x", E_Present = "Present.y", E_Absent = "Absent.y")
+
+C100P <- as.data.frame(cor(Pr100))
+
+```
+
+#### Create dataframes for scatterplot 
+
+```{r Subset dataframe for graphing data}
+# Subset and widen dataframe for creating graphs later in script. 
+# Keep only Sample, lLR, Pr, St, and amtDNA
+widerMT <- MT[,-c(2,4,7:8,10:33)] |> 
+  pivot_wider(names_from = St, values_from = lLR)
+
+widerMT$TotDNA <- as.factor(widerMT$TotDNA)
+widerMT$Pr <- as.factor(widerMT$Pr)
+
+KPITable(widerMT)
+
+```
+
+#### Scatterplot of stutter present vs. stutter absent for all samples and both programs
+
+```{r Scatterplot}
+ St_Pr_scatter <- ggplot(widerMT, aes(x = Present, y = Absent)) +
+    geom_point(aes(shape = Pr, color = TotDNA), size = 1) +
+      scale_shape_manual(values = c(5, 17)) +
+      scale_color_manual(values = c( "#723957","#723959")) +
+      scale_shape_discrete(name = "PGS Program") +
+      scale_color_discrete(name = "Total input DNA") +
+    geom_smooth(method = lm, se = TRUE, color = "red", size = .5, fullrange = TRUE) +
+    geom_abline() +
+    labs(title = "Scatterplot: logLR EFM & likelTD\nStutter Present or Absent", x = "Stutter present", y = "Stutter absent") +
+    theme_stata(base_family = "serif") +
+    panel_border(color = "black") +
+    scale_color_stata() +
+    theme(plot.title = element_text(size = 10, hjust = 0.5), 
+          plot.background = element_rect(fill = "lightgray"),
+          legend.title = element_text(size = 7),
+          legend.title.align = 0,
+          legend.text = element_text(size = 7),
+          legend.position = c(.9,.3)) # Sets legend inside of plot area
+
+ggsave2("Stutter_Program_scatter.pdf", width = 7.3, height = 6)
+
+St_Pr_scatter
+```
+
+#### Separate the total input DNA into separate scatterplots, adding correlation coefficients. 
+
+```{r Create-dataframe-corr-coeff-for each-DNA-input}
+ anno <- data.frame(xstar = c(4, 4), ystar = c(13.5, 13.5),
+                   lab = c(EFM500St, like500St),
+                   TotDNA = c(100, 500))
+```
+
+```{r Faceted-scatterplot-with-correlation-coefficients}
+ St_Pr_scatter_facet <- ggplot(widerMT, aes(x = Present, y = Absent)) +
+    geom_point(aes(shape = Pr, color = TotDNA), size = 1) +
+      scale_shape_manual(values = c(5, 17)) +
+      scale_color_manual(values = c( "#723957","#723959")) +
+      scale_shape_discrete(name = "PGS Program") +
+      scale_color_discrete(name = "Total input DNA") +
+    geom_text(data = anno, aes(x = xstar, y = ystar, label = paste("Correlation coefficient = ",lab)), size = 3) +
+    facet_wrap(~ TotDNA, scales = "fixed") + 
+      #annotate("text", x = 4, y = 13.5, label = paste("Correlation Coefficient = ", EFM500St), size = 3) + 
+    geom_smooth(method = lm, se = TRUE, color = "red", size = .5, fullrange = TRUE) +
+    geom_abline() +
+    labs(title = "Scatterplot: logLR EFM & likelTD\nStutter Present or Absent", x = "Stutter present", y = "Stutter absent") +
+    theme_stata(base_family = "serif") +
+    panel_border(color = "black") +
+    scale_color_stata() +
+    theme(plot.title = element_text(size = 10, hjust = 0.5), 
+          plot.background = element_rect(fill = "lightgray"),
+          legend.title = element_text(size = 7),
+          legend.title.align = 0,
+          legend.text = element_text(size = 7),
+          legend.position = c(.9,.3)) # Sets legend inside of plot area
+
+ggsave2("Stutter_Program_facet_scatter.pdf", width = 7.3, height = 6)
+St_Pr_scatter_facet
+
+```

@@ -1,6 +1,7 @@
 ---
 title: "Bland Altman analysis of two methods Notebook"
 output:
+  word_document: default
   html_document:
     df_print: paged
 bibliography: references.bib
@@ -129,7 +130,7 @@ EffComp <- baPlotKPI(baEff$Eff.x, baEff$Eff.y,two = 3 )  +
   scale_color_discrete((name = "Program"))
 
 EffComp
-##ggsave2("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/Statistical Testing and EDA templates/Bland_Altman/BA_EFMvlikeLTD.pdf", width = 7, height = 5)
+ggsave2("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/Ch2_EDA_Examples/Bland_Altman/BA_EFMvlikeLTD_Eff.pdf", width = 7, height = 5)
 ```
 
 ### Bland-Altman plot on logLR
@@ -174,7 +175,7 @@ LRComp <- baPlotKPI(balLR$lLR.x, balLR$lLR.y,two = 3 )  +
   scale_color_discrete((name = "Program"))
 
 LRComp
-# ggsave2("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/Statistical Testing and EDA templates/Bland_Altman/BA_EFMvlikeLTD.pdf", width = 7, height = 5)
+ggsave2("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab Notebooks/Ch2_EDA_Examples/Bland_Altman/BA_EFMvlikeLTD_logLR.pdf", width = 7, height = 5)
 ```
 
 ### Discussion
