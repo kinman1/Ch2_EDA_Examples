@@ -1,0 +1,306 @@
+---
+title: "Packages for EDA"
+author: "KPI"
+date: "2024_10_04"
+output:
+  word_document: default
+  'officedown:': rdocx_document
+  html_document:
+    df_print: paged
+editor_options:
+  markdown:
+    wrap: 72
+always_allow_html: true
+params:
+  directory:
+    value: /Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/
+---
+
+#### Setup chunk
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+  include = TRUE,
+  message = FALSE,
+  results = TRUE,
+	warning = FALSE
+  )
+Knit_to_Word = TRUE
+```
+
+#### Load packages, options, caption functions, and source file
+
+```{r load packages, include=FALSE}
+suppressPackageStartupMessages({
+library(beanplot)
+library(blandr)
+library(BlandAltmanLeh)
+library(captioner)
+library(car)
+library(corrplot)
+library(cowplot)
+library(CGPfunctions)
+library(DataExplorer)
+library(data.table)
+library(dplyr)
+library(EnvStats)
+library(flextable)
+library(formattable)
+library(GGally)
+library(ggExtra)  
+library(ggpirate)
+library(ggplot2)
+library(ggpubr) 
+library(ggthemes)
+library(glue)
+library(Hmisc)
+library(inspectdf)
+library(janitor)
+library(kableExtra)
+library(likelihoodR)
+library(MANOVA.RM)
+library(mgcViz)
+library(officedown)
+library(RColorBrewer)
+library(readr)
+library(readxl)
+library(scales)
+library(skimr)
+library(SmartEDA)
+library(summarytools)
+library(tidyquant)
+library(tidyr)
+library(tidyverse)
+library(webshot2)
+library(XICOR)
+library(zeallot)
+})
+
+set_flextable_defaults(font.family = "Times New Roman",
+                       border.color = "gray",
+                       font.size = 10,
+                       digits = 3,
+                       theme_fun = "theme_zebra")
+
+options(scipen = 999) 
+options(digits = 2)
+options(prType='html')
+
+source(glue('{params$directory}','Lab_Notebooks/library.R'))
+
+```
+
+#### Creating table and figure captions
+
+```{r Captions,results=FALSE, echo=TRUE}
+fig_nums <- captioner(prefix = "Figure")
+table_nums <- captioner(prefix = "Table")
+
+table_nums(name = "samples", caption = "Small sample table that is a subset of the AllResults table")
+fig_nums(name = "scatter", caption = "Scatterplot of stutter present vs. stutter absent for all samples and both programs in one plot")
+
+
+```
+
+### Introduction and purpose
+
+From this website (https://www.business-science.io/code-tools/2024/10/03/top-10-r-packages-for-eda.html)
+
+Several packages for doing a quick but comprehensive EDA overview are given. This simply repeats the one's I find of interest. 
+
+
+#### Creating data tables/frames for use in analysis
+
+The AllResults_Table10.csv contains the most current data, consisting of 38 variables and 8000 rows
+
+"Sample" "RepNum" "RepSetID"  "ConditionID" "TotlogLR"    "Eff"         "Program"     "Stutter"     "NumCont"     "TCon"        "TotDNA"      "amtDNA"      "APH"         "SampleFr"    "Calc_Prop"   "C1"          "C2"          "C3"          "C4"          "Dose1"       "Dose2"       "Dose3"  "Dose4"   "CSF1PO"      "D13S317"     "D16S539"     "D18S51"      "D19S433"     "D21S11"      "D2S1338"     "D3S1358"     "D5S818"      "D7S820"     
+"D8S1179"     "FGA"         "TH01"        "TPOX"        "VWA" 
+
+
+```{r}
+MT <- readRDS("/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Data/Output_files/AllResults_Data/AllResults_Table_10.rds")
+
+KPIFlexTable(head(MT), height = "100%", dimnames(MT)[[2]])
+```
+
+Further exploration (after running skim) showed that the column types are not preserved (duh, it's a csv file). Searching stackoverflow shows the answer is to convert the required columns to factors once, then use saveRDS to (which is an R type of file) to preserve the column type. Also documented in my thesis Dissertation Notes in OneNote
+
+```{r eval=FALSE, include=FALSE}
+#Call the function as change_column_type(dt, cols, type = *in quotes as in function*)
+cols <- c("NumCont", "C1", "C2", "C3", "C4", "Dose1", "Dose2", "Dose3", "Dose4", "Program", "Stutter", "TCon") 
+MT <- change_column_type(MT, cols, type = c("as.factor"))
+
+saveRDS(MT, file = "/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Data/Output_files/AllResults_Data/AllResults_Table_10.rds")
+```
+
+This was done once, and will not be repeated. 
+
+skimr provides a convenient and elegant summary of the data.
+```{r}
+
+skim(MT)
+
+```
+
+skim now shows 12 columns as factors and 26 as numeric. 
+
+```{r results="asis"}
+dfSummary(MT, plain.ascii  = FALSE, 
+          style        = "grid", 
+          graph.magnif = 0.75, 
+          valid.col    = FALSE,
+          tmp.img.dir  = "/tmp")
+```
+This gives a nice html summary, but a sucky, unusable print summary. 
+```{r}
+corrplot(
+  cor(MT[,.(SampleFr, Calc_Prop, APH)]),
+      method = "circle", 
+      addCoef.col = 'grey', 
+      order = 'alphabet',
+      rect.col = 'blue',
+      addrect = 2)
+        
+
+```
+
+This doesnt' work on my data
+
+```{r}
+chart.Correlation(
+  MT[,.(TotDNA,amtDNA,SampleFr, Calc_Prop, APH)],
+  histogram = TRUE,
+  pch = 19
+)
+```
+
+
+```{r}
+
+ggpairs(
+  data = MT,
+  columns = c("TotDNA","amtDNA","SampleFr", "Calc_Prop", "APH"),
+  mapping = aes(color = Stutter)
+)
+```
+
+```{r}
+
+
+create_report(
+  MT,
+  output_dir = "/Volumes/InmanDrive4/Dropbox/Dropbox/KPI/University_of_Dundee/Dissertation/Lab_Notebooks/Ch_EDA_Examples/tmp",
+  output_file = "MasterTable_report.docx"
+)
+```
+
+This one is probably the best summary of statistical stuff. 
+
+As expected, this notebook will not print to Word. Most are sent to html, others inline. While useful, probably won't make it into the thesis. 
+
+```{r eval=FALSE, include=FALSE}
+# ifelse statement to toggle between kableExtra table when knitting to html or flextable when knitting to Word
+`
+if (Knit_to_Word) {
+  KPIFlexTable(DATAFRAME, COLUMNS_TO_PRINT) # Frequently columns to print are of the form 'dimnames(Partial)[[2]][1:14]'
+  } else {
+  KPITable(DATAFRAME) 
+}
+
+```
+
+### Analysis
+
+#### [**Appendix**]{.underline}
+
+#### Using the captioner R package
+
+Inserting a caption:
+
+1.  A function exists for both tables and figures [e.g., table_nums \<-
+    captioner(prefix = "Table")] at the beginning of the notebook.
+
+2.  Use the function to create captions as needed. The captions are all
+    placed in one chunk at the top of the notebook, and then referenced
+    when needed throughout the notebook. [e.g., table_nums(name =
+    "samples", caption = "Small sample table that is a subset of the
+    AllResults table")]
+
+    1.  The two primary parts of the function is the "name =" which is
+        the short name of the caption, and the actual prose to use in
+        the caption "caption =" as in the example above.
+
+3.  When the table or figure caption is to be used, it is first placed
+    outside of a code **chunk** in a **code block**, as follows (using
+    backticks, not apostrophes):
+
+`r table_nums("samples")`
+
+#### Other editing tricks when using an R Notebook
+
+To indent a line in markdown, use '&nbsp'. Eventually RStudio converts
+it to a colored dot, but it works.
+
+To insert space between paragraphs, use, "Insert \| Paragraph" in Visual
+mode
+
+```{r get-labels, echo = FALSE}
+labs = knitr::all_labels()
+labs = setdiff(labs, c("setup", "get-labels", "load packages"))
+```
+
+```{r all-code, include = !Knit_to_Word, ref.label=labs, eval=FALSE, echo=TRUE}
+
+```
+
+### Reproducibility Section
+
+```{r Reproducibility-SessionInfo-R-environment, echo=FALSE, message=FALSE, warning=FALSE, fig.align="center", out.width='100%', results='asis'}
+library("devtools")
+
+if (Knit_to_Word) {
+  
+  } else {
+
+df_session_platform <- devtools::session_info()$platform %>% 
+  unlist(.) %>% 
+  as.data.frame(.) %>% 
+  rownames_to_column(.)
+
+colnames(df_session_platform) <- c("Setting", "Value")
+
+kable(
+  df_session_platform, 
+  booktabs = T, 
+  align = "l",
+  caption = "Reproducibility: Session Information R-environment",
+  table.attr = "style = \"color:black;\"") %>% 
+  kable_styling(bootstrap_options = c("striped", "hover"),full_width = F, font_size = 12, position = "left", html_font = "Times New Roman") %>%
+  scroll_box(width = "100%", height = "200px")
+}
+```
+
+```{r Reproducibility-SessionInfo-R-MANY-packages-lanscape, echo=FALSE, fig.align="left", message=FALSE, warning=FALSE, out.width='100%', results='asis'}
+
+if (Knit_to_Word) {
+  
+  } else {
+df_session_packages <- devtools::session_info()$packages %>% 
+  as.data.frame(.) %>% 
+  filter(attached == TRUE) %>% 
+  dplyr::select(loadedversion, date) %>% 
+  rownames_to_column
+
+colnames(df_session_packages) <- c("Package", "Loaded version", "Date")
+
+df_session_packages %>% 
+  kable(align = "c", table.attr = "style = \"color:black;\"", 
+        caption = "Reproducibility: Package Information") %>% #center the column  
+  kable_styling(bootstrap_options = c("striped", "hover"),full_width = F, font_size = 12, position = "left", html_font = "Times New Roman") %>%
+  scroll_box(width = "100%", height = "200px")
+}
+```
+
+
+Small change to test symlink and git push
